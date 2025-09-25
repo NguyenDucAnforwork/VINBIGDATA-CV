@@ -1,0 +1,9 @@
+torch
+torchvision
+torchmetrics
+numpy
+pandas
+opencv-python
+scipy
+scikit-learn
+seaborn

@@ -1,0 +1,7 @@
+env/
+data/
+__pycache__/
+*.ipynb
+*.zip
+bin/
+outputs/
