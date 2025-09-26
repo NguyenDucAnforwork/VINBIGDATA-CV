@@ -49,6 +49,11 @@ class DefaultEvaluator:
 
         model.eval()
         shown = 0
+
+        import os
+        save_dir = "eval_outputs"
+        os.makedirs(save_dir, exist_ok=True)
+
         for lr, hr in self.loader:
             lr, hr = lr.to(self.device), hr.to(self.device)
             sr = self.post(lr)
@@ -59,7 +64,14 @@ class DefaultEvaluator:
                 plt.figure(figsize=(12, 3))
                 for j, (img, title) in enumerate([(lr[i], "LR"), (sr[i], "SR"), (hr[i], "HR")]):
                     plt.subplot(1, 3, j + 1)
-                    plt.imshow(img.detach().cpu().permute(1, 2, 0).clamp(0, 1).numpy())
+                    plt.imshow(
+                        img.detach().cpu().permute(1, 2, 0).numpy(),
+                        vmin=0, vmax=1
+                    )
                     plt.title(title); plt.axis("off")
-                plt.tight_layout(); plt.show()
+                plt.tight_layout()
+                plt.show()
+                plt.savefig(os.path.join(save_dir, f"sample_{shown}.png"))
+                plt.close()
                 shown += 1
+

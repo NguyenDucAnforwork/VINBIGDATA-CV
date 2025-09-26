@@ -1,6 +1,7 @@
 from typing import Dict
 import time, torch
 import torch.nn as nn
+from tqdm import tqdm   # thêm tqdm để làm progress bar
 
 class DefaultTrainer:
     def __init__(self, model: nn.Module, lr: float = 1e-4, betas: tuple = (0.9, 0.99),
@@ -17,19 +18,38 @@ class DefaultTrainer:
     def fit(self, train_loader, val_fn) -> None:
         for ep in range(1, self.epochs+1):
             self.model.train()
-            t0=time.time(); loss_sum=0.0
-            for lr_img, hr_img in train_loader:
+            t0 = time.time()
+            loss_sum = 0.0
+
+            # thêm tqdm vào vòng lặp batch
+            pbar = tqdm(train_loader, desc=f"Epoch {ep:03d}", leave=False)
+            for lr_img, hr_img in pbar:
                 lr_img, hr_img = lr_img.to(self.device), hr_img.to(self.device)
                 sr = self.model(lr_img)
                 loss = self.crit(sr, hr_img)
-                self.opt.zero_grad(set_to_none=True); loss.backward(); self.opt.step()
+
+                self.opt.zero_grad(set_to_none=True)
+                loss.backward()
+                self.opt.step()
+
                 loss_sum += loss.item() * lr_img.size(0)
+
+                # update thanh tqdm với loss trung bình hiện tại
+                avg_loss = loss_sum / (len(pbar) * lr_img.size(0))
+                pbar.set_postfix({"train_loss": f"{avg_loss:.4f}"})
+
             self.sch.step()
-            val_metrics: Dict[str,float] = val_fn(self.model)
+
+            # validation sau mỗi epoch
+            val_metrics: Dict[str, float] = val_fn(self.model)
             psnr = val_metrics["psnr"]
-            print(f"[{ep:03d}] L1={loss_sum/len(train_loader.dataset):.4f} | "
-                  f"Val PSNR={psnr:.3f} SSIM={val_metrics['ssim']:.4f} | "
+            ssim = val_metrics["ssim"]
+
+            print(f"[{ep:03d}] "
+                  f"L1={loss_sum/len(train_loader.dataset):.4f} | "
+                  f"Val PSNR={psnr:.3f} SSIM={ssim:.4f} | "
                   f"lr={self.sch.get_last_lr()[0]:.2e} | {time.time()-t0:.1f}s")
+
             if psnr > self.best:
                 self.best = psnr
                 torch.save(self.model.state_dict(), self.ckpt_path)
